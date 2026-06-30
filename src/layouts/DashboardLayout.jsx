@@ -1,0 +1,153 @@
+import { useEffect, useMemo, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { authService } from '../services/authService';
+
+const DashboardLayout = ({ children }) => {
+  const navigate = useNavigate();
+  const user = authService.getUser();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    const onThemeChange = (event) => setTheme(event.detail);
+    window.addEventListener('themechange', onThemeChange);
+    return () => window.removeEventListener('themechange', onThemeChange);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+    localStorage.setItem('theme', nextTheme);
+    window.dispatchEvent(new CustomEvent('themechange', { detail: nextTheme }));
+    setTheme(nextTheme);
+  };
+
+  const navigation = useMemo(() => {
+    const items = [
+      { label: 'Dashboard', to: '/dashboard', icon: '▦' },
+      { label: 'Feedback', to: '/feedback', icon: '✎' },
+
+    ];
+
+    if (['super_admin', 'company_admin'].includes(user?.role)) {
+      items.push({ label: 'Reports', to: '/reports', icon: '▤' });
+    }
+
+    if (['super_admin', 'company_admin'].includes(user?.role)) {
+      items.push({ label: 'Employees', to: '/employees', icon: '◉' });
+    }
+
+    if (user?.role === 'super_admin') {
+      items.push(
+        { label: 'Users', to: '/users', icon: '◇' },
+        { label: 'Companies', to: '/companies', icon: '□' }
+      );
+    }
+
+    if (['super_admin', 'company_admin'].includes(user?.role)) {
+      items.push({ label: 'Departments', to: '/departments', icon: '≡' });
+    }
+
+    return items;
+  }, [user?.role]);
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      navigate('/login');
+    } catch (error) {
+      navigate('/login');
+    }
+  };
+
+  const closeSidebar = () => setSidebarOpen(false);
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100 lg:flex">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-30 bg-slate-950/45 lg:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[86vw] -translate-x-full flex-col bg-slate-950 px-4 py-5 text-white shadow-2xl transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : ''}`}
+        aria-label="Sidebar"
+      >
+
+        <div className="mb-6 flex items-center justify-between gap-3 px-2">
+          <button type="button" onClick={() => navigate('/dashboard')} className="min-h-0 p-0 text-left hover:opacity-90">
+            <span className="block text-xl font-bold tracking-tight">Feedback-Rating App</span>
+            <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Feedback-Rating App</span>
+          </button>
+          <button type="button" className="icon-button border-white/10 text-white lg:hidden" onClick={closeSidebar} aria-label="Close menu">
+            ×
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-1 overflow-y-auto pr-1" aria-label="Primary navigation">
+          {navigation.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={closeSidebar}
+              className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}
+            >
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="mt-5 rounded-lg border border-white/10 bg-white/5 p-3">
+          <p className="truncate text-sm font-semibold text-white">{user?.name || 'User'}</p>
+          <p className="truncate text-xs uppercase tracking-wide text-slate-400">{user?.role?.replace('_', ' ')}</p>
+          <button type="button" onClick={handleLogout} className="mt-3 w-full btn-danger">Logout</button>
+        </div>
+      </aside>
+
+      <div className="min-w-0 flex-1 pb-20 lg:pb-0">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+          <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+            <button type="button" onClick={() => setSidebarOpen(true)} className="icon-button lg:hidden" aria-label="Open menu">
+              ☰
+            </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{user?.name || 'Welcome'}</p>
+              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                className="btn-neutral hidden sm:inline-flex"
+                onClick={toggleTheme}
+                aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              >
+                {theme === 'dark' ? 'Light' : 'Dark'}
+              </button>
+              <button type="button" onClick={handleLogout} className="btn-danger hidden sm:inline-flex">Logout</button>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+          {children}
+        </main>
+      </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white px-2 py-2 shadow-[0_-10px_30px_rgba(15,23,42,0.12)] lg:hidden" aria-label="Mobile quick navigation">
+        {navigation.slice(0, 4).map((item) => (
+          <NavLink key={item.to} to={item.to} className={({ isActive }) => `mobile-nav-item ${isActive ? 'mobile-nav-active' : ''}`}>
+            <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+    </div>
+  );
+};
+
+export default DashboardLayout;

@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = 'https://employee-feedback-backend-rho.vercel.app/api';
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'https://employee-feedback-backend-jet.vercel.app/api';
 
 const apiClient = axios.create({
   baseURL: API_URL,
